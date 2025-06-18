@@ -17,33 +17,37 @@ class ReferralResource extends Resource
 
     protected static ?string $navigationIcon = 'heroicon-o-user-group';
 
-    protected static ?string $navigationGroup = 'User Management';
+    protected static ?string $navigationGroup = 'Управление пользователями';
 
-    protected static ?string $navigationLabel = 'Referrals';
+    protected static ?string $navigationLabel = 'Реферальная система';
 
     public static function form(Form $form): Form
     {
         return $form
             ->schema([
                 Forms\Components\Select::make('referrer_id')
+                    ->label('Реферер')
                     ->relationship('referrer', 'name')
                     ->required()
                     ->searchable(),
                 Forms\Components\Select::make('referred_id')
+                    ->label('Приглашенный пользователь')
                     ->relationship('referred', 'name')
                     ->searchable(),
                 Forms\Components\TextInput::make('referral_code')
+                    ->label('Реферальный код')
                     ->required()
                     ->unique(ignoreRecord: true)
                     ->maxLength(10),
                 Forms\Components\TextInput::make('reward_amount')
+                    ->label('Сумма вознаграждения')
                     ->numeric()
-                    ->prefix('$')
+                    ->prefix('₸')
                     ->step(0.01),
                 Forms\Components\Toggle::make('is_paid')
-                    ->label('Is Paid'),
+                    ->label('Выплачено'),
                 Forms\Components\DateTimePicker::make('paid_at')
-                    ->label('Paid At'),
+                    ->label('Дата выплаты'),
             ]);
     }
 
@@ -52,49 +56,49 @@ class ReferralResource extends Resource
         return $table
             ->columns([
                 Tables\Columns\TextColumn::make('referrer.name')
-                    ->label('Referrer')
+                    ->label('Реферер')
                     ->searchable()
                     ->sortable(),
                 Tables\Columns\TextColumn::make('referred.name')
-                    ->label('Referred User')
+                    ->label('Приглашенный пользователь')
                     ->searchable()
                     ->sortable()
-                    ->placeholder('Not used yet'),
+                    ->placeholder('Код еще не использован'),
                 Tables\Columns\TextColumn::make('referral_code')
-                    ->label('Referral Code')
+                    ->label('Реферальный код')
                     ->searchable()
                     ->copyable(),
                 Tables\Columns\TextColumn::make('reward_amount')
-                    ->label('Reward Amount')
-                    ->money('USD')
+                    ->label('Сумма вознаграждения')
+                    ->money('KZT')
                     ->sortable(),
                 Tables\Columns\IconColumn::make('is_paid')
-                    ->label('Paid')
+                    ->label('Выплачено')
                     ->boolean(),
                 Tables\Columns\TextColumn::make('created_at')
-                    ->label('Created')
+                    ->label('Создано')
                     ->dateTime()
                     ->sortable(),
                 Tables\Columns\TextColumn::make('paid_at')
-                    ->label('Paid At')
+                    ->label('Дата выплаты')
                     ->dateTime()
                     ->sortable()
-                    ->placeholder('Not paid'),
+                    ->placeholder('Не выплачено'),
             ])
             ->filters([
                 Tables\Filters\TernaryFilter::make('is_paid')
-                    ->label('Payment Status'),
+                    ->label('Статус выплаты'),
                 Tables\Filters\Filter::make('has_referred')
-                    ->label('Used Referrals')
+                    ->label('Использованные коды')
                     ->query(fn (Builder $query): Builder => $query->whereNotNull('referred_id')),
                 Tables\Filters\Filter::make('unused_referrals')
-                    ->label('Unused Referrals')
+                    ->label('Неиспользованные коды')
                     ->query(fn (Builder $query): Builder => $query->whereNull('referred_id')),
             ])
             ->actions([
                 Tables\Actions\EditAction::make(),
                 Tables\Actions\Action::make('mark_as_paid')
-                    ->label('Mark as Paid')
+                    ->label('Отметить как выплаченное')
                     ->icon('heroicon-o-currency-dollar')
                     ->color('success')
                     ->visible(fn (Referral $record): bool => !$record->is_paid && $record->referred_id)
@@ -107,7 +111,7 @@ class ReferralResource extends Resource
                 Tables\Actions\BulkActionGroup::make([
                     Tables\Actions\DeleteBulkAction::make(),
                     Tables\Actions\BulkAction::make('mark_selected_as_paid')
-                        ->label('Mark Selected as Paid')
+                        ->label('Отметить выбранные как выплаченные')
                         ->icon('heroicon-o-currency-dollar')
                         ->color('success')
                         ->action(function ($records) {

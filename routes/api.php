@@ -12,6 +12,8 @@ use App\Http\Controllers\Api\ShopReviewController;
 use App\Http\Controllers\Api\StoryController;
 use App\Http\Controllers\Api\ChatController;
 use App\Http\Controllers\Api\ReferralController;
+use App\Http\Controllers\Api\RegionController;
+use App\Http\Controllers\Api\CityController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
@@ -33,6 +35,14 @@ Route::get('/public/products/{product}', [ProductController::class, 'publicShow'
 Route::get('/public/shops', [ShopController::class, 'index']);
 Route::get('/public/shops/{shop}', [ShopController::class, 'show']);
 Route::get('/public/shops/{shop}/reviews', [ShopReviewController::class, 'index']);
+
+// Public region and city routes
+Route::get('/regions', [RegionController::class, 'index']);
+Route::get('/regions/{region}', [RegionController::class, 'show']);
+Route::get('/regions/{region}/cities', [RegionController::class, 'cities']);
+Route::get('/cities', [CityController::class, 'index']);
+Route::get('/cities/{city}', [CityController::class, 'show']);
+Route::get('/cities/by-region/{region}', [CityController::class, 'byRegion']);
 
 // Product and Category Management Routes
 Route::get('/categories', [CategoryController::class, 'index']);
@@ -111,4 +121,13 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/referrals/generate', [ReferralController::class, 'generateCode']);
     Route::post('/referrals/apply', [ReferralController::class, 'applyCode']);
     Route::get('/referrals/statistics', [ReferralController::class, 'statistics']);
+
+    // Region and City management (admin routes)
+    Route::post('/regions', [RegionController::class, 'store']);
+    Route::put('/regions/{region}', [RegionController::class, 'update']);
+    Route::delete('/regions/{region}', [RegionController::class, 'destroy']);
+    
+    Route::post('/cities', [CityController::class, 'store']);
+    Route::put('/cities/{city}', [CityController::class, 'update']);
+    Route::delete('/cities/{city}', [CityController::class, 'destroy']);
 });
