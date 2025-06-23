@@ -77,7 +77,15 @@ Route::middleware('auth:sanctum')->group(function () {
     // Products
     Route::get('/products', [ProductController::class, 'index']);
     Route::post('/products', [ProductController::class, 'store']);
+    
+    // Video management routes (must come before parameterized routes)
+    Route::post('/products/upload-video', [ProductController::class, 'uploadVideo']);
+    Route::post('/products/video-info', [ProductController::class, 'getVideoInfo']);
+    Route::delete('/products/delete-video', [ProductController::class, 'deleteVideo']);
+    
+    // Parameterized product routes (must come after specific routes)
     Route::get('/products/{product}', [ProductController::class, 'show']);
+    Route::post('/products/{product}/increment-views', [ProductController::class, 'incrementViews']);
     Route::put('/products/{product}', [ProductController::class, 'update']);
     Route::delete('/products/{product}', [ProductController::class, 'destroy']);
     Route::post('/products/{product}/parameters', [ProductController::class, 'updateParameters']);
