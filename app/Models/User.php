@@ -30,6 +30,7 @@ class User extends Authenticatable
         'city_id',
         'password',
         'is_active',
+        'balance',
     ];
 
     /**
@@ -53,6 +54,7 @@ class User extends Authenticatable
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
             'is_active' => 'boolean',
+            'balance' => 'decimal:2',
         ];
     }
 
@@ -159,5 +161,108 @@ class User extends Authenticatable
     public function referrer()
     {
         return $this->hasOneThrough(User::class, Referral::class, 'referred_id', 'id', 'id', 'referrer_id');
+    }
+
+    /**
+     * Get the user's wallet transactions.
+     */
+    public function walletTransactions()
+    {
+        return $this->hasMany(WalletTransaction::class);
+    }
+
+    /**
+     * Get the user's payment sessions.
+     */
+    public function paymentSessions()
+    {
+        return $this->hasMany(PaymentSession::class);
+    }
+
+    /**
+     * Add funds to user's wallet.
+     */
+    public function addFunds(float $amount, string $description = null, string $referenceId = null): WalletTransaction
+    {
+        $balanceBefore = $this->balance;
+        $this->increment('balance', $amount);
+        $this->refresh();
+
+        return $this->walletTransactions()->create([
+            'type' => 'deposit',
+            'amount' => $amount,
+            'balance_before' => $balanceBefore,
+            'balance_after' => $this->balance,
+            'description' => $description ?? 'Пополнение баланса',
+            'reference_id' => $referenceId,
+            'status' => 'completed',
+        ]);
+    }
+
+    /**
+     * Deduct funds from user's wallet.
+     */
+    public function deductFunds(float $amount, string $description = null, string $referenceId = null): WalletTransaction
+    {
+        if ($this->balance < $amount) {
+            throw new \Exception('Недостаточно средств на балансе');
+        }
+
+        $balanceBefore = $this->balance;
+        $this->decrement('balance', $amount);
+        $this->refresh();
+
+        return $this->walletTransactions()->create([
+            'type' => 'withdrawal',
+            'amount' => $amount,
+            'balance_before' => $balanceBefore,
+            'balance_after' => $this->balance,
+            'description' => $description ?? 'Списание с баланса',
+            'reference_id' => $referenceId,
+            'status' => 'completed',
+        ]);
+    }
+
+    /**
+     * Check if user has sufficient balance.
+     */
+    public function hasSufficientBalance(float $amount): bool
+    {
+        return $this->balance >= $amount;
+    }
+
+    /**
+     * Get the user's purchased tariffs.
+     */
+    public function userTariffs()
+    {
+        return $this->hasMany(UserTariff::class);
+    }
+
+    /**
+     * Get the user's active tariffs.
+     */
+    public function activeTariffs()
+    {
+        return $this->userTariffs()
+            ->where('status', 'active')
+            ->where(function ($query) {
+                $query->whereNull('expires_at')
+                      ->orWhere('expires_at', '>', now());
+            });
+    }
+
+    /**
+     * Check if user has active tariff.
+     */
+    public function hasActiveTariff(int $tariffId = null): bool
+    {
+        $query = $this->activeTariffs();
+        
+        if ($tariffId) {
+            $query->where('tariff_id', $tariffId);
+        }
+        
+        return $query->exists();
     }
 }

@@ -35,4 +35,15 @@ return [
         ],
     ],
 
+    'smsc' => [
+        'login' => env('SMSC_LOGIN'),
+        'password' => env('SMSC_PASSWORD'),
+    ],
+
+    'freedompay' => [
+        'merchant_id' => env('FREEDOMPAY_MERCHANT_ID', '554649'),
+        'secret_key' => env('FREEDOMPAY_SECRET_KEY'),
+        'api_url' => env('FREEDOMPAY_API_URL', 'https://api.freedompay.kz'),
+    ],
+
 ];

@@ -1,0 +1,659 @@
+openapi: 3.0.3
+info:
+  title: Chat API
+  description: |
+    API для системы чатов и сообщений между покупателями и продавцами.
+    
+    Поддерживает двустороннюю переписку, real-time обновления и полное управление чатами.
+  version: 1.0.0
+  contact:
+    name: API Support
+    email: support@example.com
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+
+servers:
+  - url: http://localhost:8000/api
+    description: Development server
+  - url: https://api.example.com/api
+    description: Production server
+
+security:
+  - bearerAuth: []
+
+paths:
+  /chats:
+    get:
+      summary: Получить список чатов
+      description: Возвращает все чаты пользователя (как покупателя и как продавца)
+      tags:
+        - Chat Management
+      responses:
+        '200':
+          description: Список чатов
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Chat'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+    post:
+      summary: Создать чат
+      description: Создает новый чат между покупателем и продавцом товара
+      tags:
+        - Chat Management
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - product_id
+              properties:
+                product_id:
+                  type: integer
+                  description: ID товара
+                  example: 123
+      responses:
+        '201':
+          description: Чат создан успешно
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '200':
+          description: Чат уже существует
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '400':
+          description: Попытка создать чат со своим товаром
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+    delete:
+      summary: Удалить все чаты
+      description: Удаляет все чаты пользователя со всеми сообщениями
+      tags:
+        - Chat Management
+      responses:
+        '200':
+          description: Все чаты удалены
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: success
+                  message:
+                    type: string
+                    example: All chats deleted successfully
+                  data:
+                    type: object
+                    properties:
+                      deleted_chats_count:
+                        type: integer
+                        example: 5
+                      deleted_messages_count:
+                        type: integer
+                        example: 23
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /chats/{chatId}:
+    delete:
+      summary: Удалить чат
+      description: Полностью удаляет чат со всеми сообщениями
+      tags:
+        - Chat Management
+      parameters:
+        - $ref: '#/components/parameters/ChatId'
+      responses:
+        '200':
+          description: Чат удален
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /chats/{chatId}/clear:
+    delete:
+      summary: Очистить чат
+      description: Удаляет все сообщения в чате, но оставляет сам чат
+      tags:
+        - Chat Management
+      parameters:
+        - $ref: '#/components/parameters/ChatId'
+      responses:
+        '200':
+          description: Чат очищен
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: success
+                  message:
+                    type: string
+                    example: Chat cleared successfully
+                  data:
+                    type: object
+                    properties:
+                      chat_id:
+                        type: integer
+                        example: 1
+                      deleted_messages_count:
+                        type: integer
+                        example: 5
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /chats/{chatId}/join:
+    get:
+      summary: Присоединиться к чату
+      description: Присоединяется к чату для получения real-time обновлений
+      tags:
+        - Chat Management
+      parameters:
+        - $ref: '#/components/parameters/ChatId'
+      responses:
+        '200':
+          description: Успешно присоединился к чату
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: success
+                  message:
+                    type: string
+                    example: Successfully joined chat
+                  data:
+                    type: object
+                    properties:
+                      chat_id:
+                        type: integer
+                        example: 1
+                      channel:
+                        type: string
+                        example: chat.1
+                      user:
+                        $ref: '#/components/schemas/User'
+                      is_buyer:
+                        type: boolean
+                        example: true
+                      is_seller:
+                        type: boolean
+                        example: false
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /chats/{chatId}/messages:
+    get:
+      summary: Получить сообщения чата
+      description: Возвращает все сообщения чата
+      tags:
+        - Messages
+      parameters:
+        - $ref: '#/components/parameters/ChatId'
+      responses:
+        '200':
+          description: Список сообщений
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: success
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Message'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+    post:
+      summary: Отправить сообщение
+      description: Отправляет сообщение в чат
+      tags:
+        - Messages
+      parameters:
+        - $ref: '#/components/parameters/ChatId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - chat_id
+                - content
+              properties:
+                chat_id:
+                  type: integer
+                  description: ID чата
+                  example: 1
+                content:
+                  type: string
+                  maxLength: 1000
+                  description: Текст сообщения
+                  example: "Привет! Интересует ваш товар."
+      responses:
+        '201':
+          description: Сообщение отправлено
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: success
+                  message:
+                    type: string
+                    example: Message sent successfully
+                  data:
+                    $ref: '#/components/schemas/Message'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+
+  /chats/{chatId}/messages/{messageId}:
+    delete:
+      summary: Удалить сообщение
+      description: Удаляет конкретное сообщение (только свое)
+      tags:
+        - Messages
+      parameters:
+        - $ref: '#/components/parameters/ChatId'
+        - $ref: '#/components/parameters/MessageId'
+      responses:
+        '200':
+          description: Сообщение удалено
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: success
+                  message:
+                    type: string
+                    example: Message deleted successfully
+                  data:
+                    type: object
+                    properties:
+                      id:
+                        type: integer
+                        example: 123
+                      content:
+                        type: string
+                        example: Удаленное сообщение
+                      chat_id:
+                        type: integer
+                        example: 1
+                      created_at:
+                        type: string
+                        format: date-time
+                        example: "2025-01-08T10:30:00.000000Z"
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          description: Попытка удалить чужое сообщение
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /chats/{chatId}/mark-read:
+    post:
+      summary: Отметить сообщения как прочитанные
+      description: Отмечает сообщения как прочитанные
+      tags:
+        - Messages
+      parameters:
+        - $ref: '#/components/parameters/ChatId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - message_ids
+              properties:
+                message_ids:
+                  type: array
+                  items:
+                    type: integer
+                  description: Массив ID сообщений
+                  example: [1, 2, 3]
+      responses:
+        '200':
+          description: Сообщения отмечены как прочитанные
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+
+  /chats/{chatId}/poll:
+    get:
+      summary: Polling новых сообщений
+      description: Получает новые сообщения через polling
+      tags:
+        - Real-time
+      parameters:
+        - $ref: '#/components/parameters/ChatId'
+        - name: last_message_id
+          in: query
+          description: ID последнего полученного сообщения
+          schema:
+            type: integer
+            default: 0
+      responses:
+        '200':
+          description: Новые сообщения
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: success
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Message'
+                  has_new_messages:
+                    type: boolean
+                    example: true
+                  last_message_id:
+                    type: integer
+                    example: 5
+                  source:
+                    type: string
+                    enum: [cache, database]
+                    example: database
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /chats/{chatId}/stream:
+    get:
+      summary: SSE поток сообщений
+      description: Открывает Server-Sent Events поток для получения новых сообщений в реальном времени
+      tags:
+        - Real-time
+      parameters:
+        - $ref: '#/components/parameters/ChatId'
+        - name: last_message_id
+          in: query
+          description: ID последнего полученного сообщения
+          schema:
+            type: integer
+            default: 0
+      responses:
+        '200':
+          description: SSE поток
+          content:
+            text/event-stream:
+              schema:
+                type: string
+                example: |
+                  data: {"type": "message", "data": {"id": 1, "content": "Новое сообщение", ...}}
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  parameters:
+    ChatId:
+      name: chatId
+      in: path
+      required: true
+      description: ID чата
+      schema:
+        type: integer
+        example: 1
+
+    MessageId:
+      name: messageId
+      in: path
+      required: true
+      description: ID сообщения
+      schema:
+        type: integer
+        example: 123
+
+  schemas:
+    User:
+      type: object
+      properties:
+        id:
+          type: integer
+          example: 1
+        name:
+          type: string
+          example: "Имя пользователя"
+        avatar:
+          type: string
+          nullable: true
+          example: "avatar.jpg"
+
+    Product:
+      type: object
+      properties:
+        id:
+          type: integer
+          example: 123
+        name:
+          type: string
+          example: "Товар"
+        price:
+          type: number
+          format: decimal
+          example: 5000.00
+        main_photo:
+          type: string
+          nullable: true
+          example: "product.jpg"
+
+    Message:
+      type: object
+      properties:
+        id:
+          type: integer
+          example: 1
+        chat_id:
+          type: integer
+          example: 1
+        user_id:
+          type: integer
+          example: 1
+        content:
+          type: string
+          example: "Текст сообщения"
+        created_at:
+          type: string
+          format: date-time
+          example: "2025-01-08T10:00:00.000000Z"
+        updated_at:
+          type: string
+          format: date-time
+          example: "2025-01-08T10:00:00.000000Z"
+        user:
+          $ref: '#/components/schemas/User'
+
+    Chat:
+      type: object
+      properties:
+        id:
+          type: integer
+          example: 1
+        user_id:
+          type: integer
+          description: ID покупателя
+          example: 1
+        seller_id:
+          type: integer
+          description: ID продавца
+          example: 2
+        product_id:
+          type: integer
+          description: ID товара
+          example: 123
+        created_at:
+          type: string
+          format: date-time
+          example: "2025-01-08T10:00:00.000000Z"
+        updated_at:
+          type: string
+          format: date-time
+          example: "2025-01-08T10:00:00.000000Z"
+        user:
+          $ref: '#/components/schemas/User'
+        seller:
+          $ref: '#/components/schemas/User'
+        product:
+          $ref: '#/components/schemas/Product'
+        messages:
+          type: array
+          items:
+            $ref: '#/components/schemas/Message'
+        other_participant:
+          $ref: '#/components/schemas/User'
+        is_buyer:
+          type: boolean
+          description: Является ли текущий пользователь покупателем
+          example: true
+        is_seller:
+          type: boolean
+          description: Является ли текущий пользователь продавцом
+          example: false
+
+    SuccessResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          example: success
+        message:
+          type: string
+          example: Operation completed successfully
+        data:
+          type: object
+          description: Данные ответа
+
+    ErrorResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          example: error
+        message:
+          type: string
+          example: Error description
+
+    ValidationErrorResponse:
+      type: object
+      properties:
+        message:
+          type: string
+          example: The given data was invalid.
+        errors:
+          type: object
+          additionalProperties:
+            type: array
+            items:
+              type: string
+          example:
+            content: ["The content field is required."]
+
+  responses:
+    Unauthorized:
+      description: Не авторизован
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              message:
+                type: string
+                example: Unauthenticated.
+
+    NotFound:
+      description: Ресурс не найден
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              message:
+                type: string
+                example: No query results for model
+
+    ValidationError:
+      description: Ошибка валидации
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ValidationErrorResponse'
+
+tags:
+  - name: Chat Management
+    description: Управление чатами
+  - name: Messages
+    description: Работа с сообщениями
+  - name: Real-time
+    description: Real-time функциональность

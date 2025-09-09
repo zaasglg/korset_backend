@@ -1,0 +1,480 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Поделиться объявлением</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .container {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            max-width: 500px;
+            width: 100%;
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px 20px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 24px;
+            margin-bottom: 10px;
+        }
+
+        .header p {
+            opacity: 0.9;
+            font-size: 16px;
+        }
+
+        .content {
+            padding: 30px 20px;
+        }
+
+        .product-card {
+            border: 2px dashed #e0e0e0;
+            border-radius: 15px;
+            padding: 20px;
+            text-align: center;
+            margin-bottom: 30px;
+            transition: all 0.3s ease;
+        }
+
+        .product-card:hover {
+            border-color: #667eea;
+            background: #f8f9ff;
+        }
+
+        .product-image {
+            width: 100px;
+            height: 100px;
+            border-radius: 15px;
+            object-fit: cover;
+            margin: 0 auto 15px;
+            display: block;
+            background: #f0f0f0;
+        }
+
+        .product-name {
+            font-size: 20px;
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 8px;
+        }
+
+        .product-price {
+            font-size: 24px;
+            font-weight: 700;
+            color: #667eea;
+            margin-bottom: 8px;
+        }
+
+        .product-location {
+            color: #666;
+            font-size: 14px;
+            margin-bottom: 15px;
+        }
+
+        .product-description {
+            color: #555;
+            font-size: 14px;
+            line-height: 1.5;
+        }
+
+        .share-buttons {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .share-btn {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 15px;
+            border: none;
+            border-radius: 12px;
+            font-size: 14px;
+            font-weight: 600;
+            text-decoration: none;
+            color: white;
+            transition: all 0.3s ease;
+            cursor: pointer;
+        }
+
+        .share-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+        }
+
+        .whatsapp {
+            background: #25D366;
+        }
+
+        .telegram {
+            background: #0088cc;
+        }
+
+        .copy-link {
+            background: #6c757d;
+        }
+
+        .facebook {
+            background: #1877f2;
+        }
+
+        .share-btn svg {
+            width: 20px;
+            height: 20px;
+            margin-right: 8px;
+        }
+
+        .link-section {
+            background: #f8f9fa;
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+
+        .link-input {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 14px;
+            margin-bottom: 10px;
+            background: white;
+        }
+
+        .copy-btn {
+            width: 100%;
+            padding: 12px;
+            background: #667eea;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.3s ease;
+        }
+
+        .copy-btn:hover {
+            background: #5a6fd8;
+        }
+
+        .copy-btn.copied {
+            background: #28a745;
+        }
+
+        .stats {
+            display: flex;
+            justify-content: space-around;
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 12px;
+            margin-top: 20px;
+        }
+
+        .stat {
+            text-align: center;
+        }
+
+        .stat-number {
+            font-size: 20px;
+            font-weight: 700;
+            color: #667eea;
+        }
+
+        .stat-label {
+            font-size: 12px;
+            color: #666;
+            margin-top: 5px;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #666;
+        }
+
+        .error {
+            text-align: center;
+            padding: 40px;
+            color: #dc3545;
+        }
+
+        @media (max-width: 480px) {
+            .share-buttons {
+                grid-template-columns: 1fr;
+            }
+            
+            .container {
+                margin: 10px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>📢 Поделиться объявлением</h1>
+            <p>Расскажите друзьям о своем товаре</p>
+        </div>
+
+        <div class="content">
+            <div id="loading" class="loading">
+                <p>Загрузка объявления...</p>
+            </div>
+
+            <div id="error" class="error" style="display: none;">
+                <p>Ошибка загрузки объявления</p>
+            </div>
+
+            <div id="product-content" style="display: none;">
+                <div class="product-card">
+                    <img id="product-image" class="product-image" src="" alt="Фото товара">
+                    <div id="product-name" class="product-name"></div>
+                    <div id="product-price" class="product-price"></div>
+                    <div id="product-location" class="product-location"></div>
+                    <div id="product-description" class="product-description"></div>
+                </div>
+
+                <div class="share-buttons">
+                    <a id="whatsapp-btn" class="share-btn whatsapp" href="#" target="_blank">
+                        <svg viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893A11.821 11.821 0 0020.885 3.488"/>
+                        </svg>
+                        WhatsApp
+                    </a>
+
+                    <a id="telegram-btn" class="share-btn telegram" href="#" target="_blank">
+                        <svg viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M11.944 0A12 12 0 0 0 0 12a12 12 0 0 0 12 12 12 12 0 0 0 12-12A12 12 0 0 0 12 0a12 12 0 0 0-.056 0zm4.962 7.224c.1-.002.321.023.465.14a.506.506 0 0 1 .171.325c.016.093.036.306.02.472-.18 1.898-.962 6.502-1.36 8.627-.168.9-.499 1.201-.82 1.23-.696.065-1.225-.46-1.9-.902-1.056-.693-1.653-1.124-2.678-1.8-1.185-.78-.417-1.21.258-1.91.177-.184 3.247-2.977 3.307-3.23.007-.032.014-.15-.056-.212s-.174-.041-.249-.024c-.106.024-1.793 1.14-5.061 3.345-.48.33-.913.49-1.302.48-.428-.008-1.252-.241-1.865-.44-.752-.245-1.349-.374-1.297-.789.027-.216.325-.437.893-.663 3.498-1.524 5.83-2.529 6.998-3.014 3.332-1.386 4.025-1.627 4.476-1.635z"/>
+                        </svg>
+                        Telegram
+                    </a>
+
+                    <a id="facebook-btn" class="share-btn facebook" href="#" target="_blank">
+                        <svg viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>
+                        </svg>
+                        Facebook
+                    </a>
+
+                    <button id="copy-btn" class="share-btn copy-link">
+                        <svg viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/>
+                        </svg>
+                        Копировать ссылку
+                    </button>
+                </div>
+
+                <div class="link-section">
+                    <input id="share-link" class="link-input" type="text" readonly>
+                    <button id="copy-link-btn" class="copy-btn">Копировать ссылку</button>
+                </div>
+
+                <div class="stats">
+                    <div class="stat">
+                        <div id="views-count" class="stat-number">0</div>
+                        <div class="stat-label">Просмотры</div>
+                    </div>
+                    <div class="stat">
+                        <div id="shares-count" class="stat-number">0</div>
+                        <div class="stat-label">Поделились</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Получаем ID продукта из URL
+        const urlParams = new URLSearchParams(window.location.search);
+        const productId = urlParams.get('id');
+        const productSlug = urlParams.get('slug');
+
+        // API базовый URL
+        const API_BASE = window.location.origin + '/api';
+
+        // Элементы DOM
+        const loading = document.getElementById('loading');
+        const error = document.getElementById('error');
+        const productContent = document.getElementById('product-content');
+
+        // Загрузка данных продукта
+        async function loadProduct() {
+            try {
+                let url;
+                if (productId) {
+                    url = `${API_BASE}/public/products/${productId}`;
+                } else if (productSlug) {
+                    // Если есть slug, ищем по нему (нужно будет добавить endpoint)
+                    url = `${API_BASE}/public/products/${productSlug}`;
+                } else {
+                    throw new Error('Не указан ID или slug продукта');
+                }
+
+                const response = await fetch(url);
+                const result = await response.json();
+
+                if (result.status === 'success') {
+                    displayProduct(result.data);
+                    setupShareButtons(result.data);
+                } else {
+                    throw new Error(result.message || 'Ошибка загрузки');
+                }
+            } catch (err) {
+                console.error('Error loading product:', err);
+                loading.style.display = 'none';
+                error.style.display = 'block';
+                error.innerHTML = `<p>Ошибка: ${err.message}</p>`;
+            }
+        }
+
+        // Отображение данных продукта
+        function displayProduct(product) {
+            // Скрываем загрузку и показываем контент
+            loading.style.display = 'none';
+            productContent.style.display = 'block';
+
+            // Заполняем данные
+            document.getElementById('product-name').textContent = product.name;
+            document.getElementById('product-price').textContent = `${product.price} ₸`;
+            document.getElementById('product-location').textContent = product.city?.name || 'Не указан';
+            document.getElementById('product-description').textContent = product.description || 'Описание отсутствует';
+
+            // Изображение
+            const imageEl = document.getElementById('product-image');
+            if (product.main_photo) {
+                imageEl.src = `/storage/${product.main_photo}`;
+                imageEl.alt = product.name;
+            } else {
+                imageEl.style.display = 'none';
+            }
+
+            // Статистика
+            document.getElementById('views-count').textContent = product.views_count || 0;
+            document.getElementById('shares-count').textContent = product.shares_count || 0;
+
+            // Обновляем заголовок страницы
+            document.title = `${product.name} - Поделиться объявлением`;
+        }
+
+        // Настройка кнопок поделиться
+        function setupShareButtons(product) {
+            const shareUrl = `${window.location.origin}/products/${product.slug}`;
+            const shareText = `${product.name} - ${product.price} ₸`;
+            const shareDescription = product.description ? product.description.substring(0, 100) + '...' : '';
+
+            // Ссылка для копирования
+            document.getElementById('share-link').value = shareUrl;
+
+            // WhatsApp
+            const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(shareText + '\n' + shareUrl)}`;
+            document.getElementById('whatsapp-btn').href = whatsappUrl;
+
+            // Telegram
+            const telegramUrl = `https://t.me/share/url?url=${encodeURIComponent(shareUrl)}&text=${encodeURIComponent(shareText)}`;
+            document.getElementById('telegram-btn').href = telegramUrl;
+
+            // Facebook
+            const facebookUrl = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(shareUrl)}`;
+            document.getElementById('facebook-btn').href = facebookUrl;
+
+            // Копирование ссылки
+            document.getElementById('copy-btn').addEventListener('click', copyToClipboard);
+            document.getElementById('copy-link-btn').addEventListener('click', copyToClipboard);
+
+            // Увеличиваем счетчик поделиться при клике на кнопки
+            document.querySelectorAll('.share-btn').forEach(btn => {
+                if (btn.id !== 'copy-btn') {
+                    btn.addEventListener('click', () => {
+                        incrementShareCount(product.id);
+                    });
+                }
+            });
+        }
+
+        // Копирование в буфер обмена
+        async function copyToClipboard() {
+            const shareLink = document.getElementById('share-link');
+            const copyBtn = document.getElementById('copy-link-btn');
+            
+            try {
+                await navigator.clipboard.writeText(shareLink.value);
+                
+                // Визуальная обратная связь
+                const originalText = copyBtn.textContent;
+                copyBtn.textContent = 'Скопировано!';
+                copyBtn.classList.add('copied');
+                
+                setTimeout(() => {
+                    copyBtn.textContent = originalText;
+                    copyBtn.classList.remove('copied');
+                }, 2000);
+
+                // Увеличиваем счетчик
+                const productId = urlParams.get('id');
+                if (productId) {
+                    incrementShareCount(productId);
+                }
+            } catch (err) {
+                console.error('Failed to copy:', err);
+                alert('Не удалось скопировать ссылку');
+            }
+        }
+
+        // Увеличение счетчика поделиться
+        async function incrementShareCount(productId) {
+            try {
+                const response = await fetch(`${API_BASE}/public/products/${productId}/share`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    }
+                });
+
+                if (response.ok) {
+                    const result = await response.json();
+                    if (result.data && result.data.shares_count) {
+                        document.getElementById('shares-count').textContent = result.data.shares_count;
+                    }
+                }
+            } catch (err) {
+                console.error('Failed to increment share count:', err);
+            }
+        }
+
+        // Запускаем загрузку при загрузке страницы
+        if (productId || productSlug) {
+            loadProduct();
+        } else {
+            loading.style.display = 'none';
+            error.style.display = 'block';
+            error.innerHTML = '<p>Не указан ID продукта в URL</p><p>Добавьте ?id=123 к ссылке</p>';
+        }
+    </script>
+</body>
+</html>

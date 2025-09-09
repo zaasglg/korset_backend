@@ -5,9 +5,12 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\Story;
 use App\Models\StoryView;
+use App\Models\PublicationPrice;
+use App\Services\WalletService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Support\Facades\DB;
 use Carbon\Carbon;
 
 class StoryController extends Controller
@@ -20,7 +23,7 @@ class StoryController extends Controller
     public function index()
     {
         // Get stories that haven't expired yet
-        $stories = Story::with('user')
+        $stories = Story::with(['user', 'publicationPrice'])
             ->where('expires_at', '>', now())
             ->where('is_active', true)
             ->orderBy('created_at', 'desc')
@@ -28,7 +31,23 @@ class StoryController extends Controller
 
         return response()->json([
             'success' => true,
-            'data' => $stories
+            'data' => $stories->map(function ($story) {
+                return [
+                    'id' => $story->id,
+                    'user' => $story->user,
+                    'content' => $story->content,
+                    'media_url' => $story->media_url,
+                    'media_type' => $story->media_type,
+                    'expires_at' => $story->expires_at,
+                    'is_active' => $story->is_active,
+                    'publication_price' => $story->publicationPrice ? [
+                        'name' => $story->publicationPrice->name,
+                        'price' => $story->publicationPrice->formatted_price,
+                    ] : null,
+                    'paid_amount' => $story->formatted_paid_amount,
+                    'created_at' => $story->created_at,
+                ];
+            })
         ]);
     }
 
@@ -43,7 +62,7 @@ class StoryController extends Controller
         $validator = Validator::make($request->all(), [
             'content' => 'nullable|string|max:500',
             'media' => 'required_without:content|file|mimes:jpeg,png,jpg,gif,mp4,mov,avi|max:20480',
-            'expires_in_hours' => 'nullable|integer|min:1|max:48', 
+            'publication_price_id' => 'required|exists:publication_prices,id',
         ]);
 
         if ($validator->fails()) {
@@ -53,33 +72,84 @@ class StoryController extends Controller
             ], 422);
         }
 
-        // Set expiration time (default 24 hours)
-        $expiresInHours = $request->input('expires_in_hours', 24);
-        $expiresAt = Carbon::now()->addHours($expiresInHours);
-
-        $story = new Story();
-        $story->user_id = auth()->id();
-        $story->content = $request->input('content');
-        $story->expires_at = $expiresAt;
-        $story->is_active = true;
-
-        // Handle media upload if present
-        if ($request->hasFile('media')) {
-            $file = $request->file('media');
-            $mediaType = explode('/', $file->getMimeType())[0]; // 'image' or 'video'
-            $path = $file->store('stories', 'public');
-            
-            $story->media_url = Storage::url($path);
-            $story->media_type = $mediaType;
+        // Получаем тариф
+        $publicationPrice = PublicationPrice::findOrFail(id: $request->publication_price_id);
+        
+        // Проверяем, что тариф активен и для сторис
+        if (!$publicationPrice->is_active || $publicationPrice->type !== PublicationPrice::TYPE_STORY) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Выбранный тариф недоступен для сторис'
+            ], 422);
         }
 
-        $story->save();
+        $user = auth()->user();
+        
+        // Проверяем баланс пользователя, если цена больше 0
+        if ($publicationPrice->price > 0 && $user->balance < $publicationPrice->price) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Недостаточно средств на балансе. Требуется: ' . $publicationPrice->formatted_price
+            ], 422);
+        }
 
-        return response()->json([
-            'success' => true,
-            'message' => 'Story created successfully',
-            'data' => $story
-        ], 201);
+        return DB::transaction(function () use ($request, $publicationPrice, $user) {
+            // Создаем сторис
+            $story = new Story();
+            $story->user_id = $user->id;
+            $story->publication_price_id = $publicationPrice->id;
+            $story->content = $request->input('content');
+            $story->paid_amount = $publicationPrice->price;
+            $story->is_active = true;
+            
+            // Устанавливаем время истечения на основе тарифа
+            $story->expires_at = Carbon::now()->addHours($publicationPrice->duration_hours);
+
+            // Обрабатываем загрузку медиа
+            if ($request->hasFile('media')) {
+                $file = $request->file('media');
+                $mediaType = explode('/', $file->getMimeType())[0]; // 'image' or 'video'
+                $path = $file->store('stories', 'public');
+                
+                $story->media_url = Storage::url($path);
+                $story->media_type = $mediaType;
+            }
+
+            // Списываем деньги с баланса, если цена больше 0
+            if ($publicationPrice->price > 0) {
+                $walletService = app(WalletService::class);
+                $paymentReference = 'STORY-' . $user->id . '-' . time();
+                
+                try {
+                    $walletService->withdraw(
+                        $user,
+                        $publicationPrice->price,
+                        'Оплата публикации сторис: ' . $publicationPrice->name,
+                        $paymentReference
+                    );
+                    
+                    $story->payment_reference = $paymentReference;
+                } catch (\Exception $e) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'Ошибка при списании средств: ' . $e->getMessage()
+                    ], 422);
+                }
+            }
+
+            $story->save();
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Сторис успешно опубликован',
+                'data' => [
+                    'story' => $story->load('publicationPrice'),
+                    'paid_amount' => $story->formatted_paid_amount,
+                    'expires_at' => $story->expires_at->format('Y-m-d H:i:s'),
+                    'remaining_balance' => number_format($user->fresh()->balance, 2) . ' KZT'
+                ]
+            ], 201);
+        });
     }
 
     /**
@@ -217,14 +287,34 @@ class StoryController extends Controller
      */
     public function myStories()
     {
-        $stories = Story::with(['views.user'])
+        $stories = Story::with(['views.user', 'publicationPrice'])
             ->where('user_id', auth()->id())
             ->orderBy('created_at', 'desc')
             ->get();
 
         return response()->json([
             'success' => true,
-            'data' => $stories
+            'data' => $stories->map(function ($story) {
+                return [
+                    'id' => $story->id,
+                    'content' => $story->content,
+                    'media_url' => $story->media_url,
+                    'media_type' => $story->media_type,
+                    'expires_at' => $story->expires_at,
+                    'is_active' => $story->is_active,
+                    'is_expired' => $story->isExpired(),
+                    'publication_price' => $story->publicationPrice ? [
+                        'name' => $story->publicationPrice->name,
+                        'price' => $story->publicationPrice->formatted_price,
+                        'duration_text' => $story->publicationPrice->duration_text,
+                    ] : null,
+                    'paid_amount' => $story->formatted_paid_amount,
+                    'payment_reference' => $story->payment_reference,
+                    'views_count' => $story->views->count(),
+                    'views' => $story->views,
+                    'created_at' => $story->created_at,
+                ];
+            })
         ]);
     }
 

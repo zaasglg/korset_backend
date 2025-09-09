@@ -21,6 +21,7 @@ class StoreProductRequest extends FormRequest
     public function rules(): array
     {
         return [
+            'publication_price_id' => 'required|exists:publication_prices,id',
             'category_id' => 'required|exists:categories,id',
             'city_id' => 'required|exists:cities,id',
             'name' => 'required|string|max:255',
@@ -44,6 +45,8 @@ class StoreProductRequest extends FormRequest
     public function messages(): array
     {
         return [
+            'publication_price_id.required' => 'Тариф публикации обязателен для заполнения',
+            'publication_price_id.exists' => 'Выбранный тариф не существует',
             'category_id.required' => 'Категория обязательна для заполнения',
             'category_id.exists' => 'Выбранная категория не существует',
             'city_id.required' => 'Город обязателен для заполнения',

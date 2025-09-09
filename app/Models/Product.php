@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 
 class Product extends Model
@@ -14,6 +15,9 @@ class Product extends Model
 
     protected $fillable = [
         'user_id',
+        'publication_price_id',
+        'paid_amount',
+        'payment_reference',
         'category_id',
         'city_id',
         'name',
@@ -21,6 +25,11 @@ class Product extends Model
         'description',
         'main_photo',
         'video',
+        'video_thumbnail',
+        'original_video_size',
+        'optimized_video_size',
+        'compression_ratio',
+        'video_duration',
         'price',
         'address',
         'whatsapp_number',
@@ -28,15 +37,24 @@ class Product extends Model
         'is_video_call_available',
         'ready_for_video_demo',
         'views_count',
+        'shares_count',
         'expires_at',
+        'is_promoted',
         'status'
     ];
 
     protected $casts = [
         'price' => 'decimal:2',
+        'paid_amount' => 'decimal:2',
         'is_video_call_available' => 'boolean',
         'ready_for_video_demo' => 'boolean',
+        'is_promoted' => 'boolean',
         'views_count' => 'integer',
+        'shares_count' => 'integer',
+        'original_video_size' => 'integer',
+        'optimized_video_size' => 'integer',
+        'compression_ratio' => 'decimal:2',
+        'video_duration' => 'integer',
         'expires_at' => 'datetime',
     ];
 
@@ -79,6 +97,30 @@ class Product extends Model
     {
         return $this->belongsToMany(User::class, 'favorites')
             ->withTimestamps();
+    }
+
+    /**
+     * Get the publication price for the product.
+     */
+    public function publicationPrice(): BelongsTo
+    {
+        return $this->belongsTo(PublicationPrice::class);
+    }
+
+    /**
+     * Get the bookings for the product.
+     */
+    public function bookings(): HasMany
+    {
+        return $this->hasMany(ProductBooking::class);
+    }
+
+    /**
+     * Get the active booking for the product.
+     */
+    public function activeBooking(): HasOne
+    {
+        return $this->hasOne(ProductBooking::class)->active()->notExpired();
     }
 
     /**
@@ -138,6 +180,123 @@ class Product extends Model
         $cleanNumber = preg_replace('/[^0-9]/', '', $this->whatsapp_number);
         
         return "https://wa.me/{$cleanNumber}";
+    }
+
+    /**
+     * Check if the product is expired based on publication price duration
+     */
+    public function isExpired(): bool
+    {
+        return $this->expires_at && $this->expires_at->isPast();
+    }
+
+    /**
+     * Get formatted paid amount
+     */
+    public function getFormattedPaidAmountAttribute(): string
+    {
+        return number_format($this->paid_amount, 2) . ' KZT';
+    }
+
+    /**
+     * Check if product was paid
+     */
+    public function isPaid(): bool
+    {
+        return $this->paid_amount > 0;
+    }
+
+    /**
+     * Check if product is active (not expired and status is active)
+     */
+    public function isActive(): bool
+    {
+        return $this->status === 'active' && !$this->isExpired();
+    }
+
+    /**
+     * Check if product is available for booking (sublet category and not booked)
+     */
+    public function isAvailableForBooking(): bool
+    {
+        // Проверяем, что категория загружена
+        if (!$this->category) {
+            $this->load('category');
+        }
+        
+        if (!$this->category) {
+            return false;
+        }
+
+        // Проверяем, что это субаренда - улучшенная логика поиска
+        $categoryName = mb_strtolower($this->category->name);
+        $categorySlug = mb_strtolower($this->category->slug ?? '');
+        
+        $isSublet = str_contains($categoryName, 'субаренда') ||
+                   str_contains($categoryName, 'sublet') ||
+                   str_contains($categorySlug, 'subarenda') ||
+                   str_contains($categorySlug, 'sublet') ||
+                   $categoryName === 'субаренда' ||
+                   $categorySlug === 'subarenda';
+        
+        if (!$isSublet) {
+            return false;
+        }
+
+        // Проверяем, что нет активного бронирования
+        return !$this->activeBooking()->exists();
+    }
+
+    /**
+     * Debug method to check category for booking availability
+     */
+    public function debugBookingAvailability(): array
+    {
+        if (!$this->category) {
+            $this->load('category');
+        }
+
+        $categoryName = $this->category ? mb_strtolower($this->category->name) : 'no category';
+        $categorySlug = $this->category ? mb_strtolower($this->category->slug ?? '') : 'no slug';
+        
+        $checks = [
+            'contains_субаренда' => str_contains($categoryName, 'субаренда'),
+            'contains_sublet' => str_contains($categoryName, 'sublet'),
+            'slug_contains_subarenda' => str_contains($categorySlug, 'subarenda'),
+            'slug_contains_sublet' => str_contains($categorySlug, 'sublet'),
+            'exact_match_name' => $categoryName === 'субаренда',
+            'exact_match_slug' => $categorySlug === 'subarenda',
+        ];
+
+        return [
+            'category_id' => $this->category_id,
+            'category_name' => $this->category->name ?? 'No category',
+            'category_slug' => $this->category->slug ?? 'No slug',
+            'checks' => $checks,
+            'is_sublet' => array_sum($checks) > 0,
+            'has_active_booking' => $this->activeBooking()->exists(),
+            'is_available_for_booking' => $this->isAvailableForBooking(),
+        ];
+    }
+
+    /**
+     * Check if product is booked
+     */
+    public function isBooked(): bool
+    {
+        return $this->activeBooking()->exists();
+    }
+
+    /**
+     * Get booking status for sublet products
+     */
+    public function getBookingStatusAttribute(): string
+    {
+        if (!$this->isAvailableForBooking() && !$this->isBooked()) {
+            return 'not_bookable'; // Не подлежит бронированию
+        }
+        
+        return $this->isBooked() ? 'booked' : 'available';
     }
 
     /**

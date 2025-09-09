@@ -38,15 +38,25 @@ return [
 
     'storage_path' => env('VIDEO_STORAGE_PATH', 'videos'),
 
-    'generate_thumbnails' => env('VIDEO_GENERATE_THUMBNAILS', false),
+    'generate_thumbnails' => env('VIDEO_GENERATE_THUMBNAILS', true),
 
     'thumbnail_path' => env('VIDEO_THUMBNAIL_PATH', 'thumbnails'),
 
-    // FFmpeg settings (optional)
+    // Video optimization settings
+    'optimization' => [
+        'enabled' => env('VIDEO_OPTIMIZATION_ENABLED', true),
+        'max_width' => env('VIDEO_MAX_WIDTH', 1280),
+        'max_height' => env('VIDEO_MAX_HEIGHT', 720),
+        'quality' => env('VIDEO_QUALITY', 28), // CRF value (lower = better quality)
+        'preset' => env('VIDEO_PRESET', 'medium'), // FFmpeg preset
+        'audio_bitrate' => env('VIDEO_AUDIO_BITRATE', '128k'),
+    ],
+
+    // FFmpeg settings
     'ffmpeg' => [
-        'enabled' => env('FFMPEG_ENABLED', false),
-        'path' => env('FFMPEG_PATH', '/usr/bin/ffmpeg'),
-        'ffprobe_path' => env('FFPROBE_PATH', '/usr/bin/ffprobe'),
+        'enabled' => env('FFMPEG_ENABLED', true),
+        'path' => env('FFMPEG_PATH', '/opt/homebrew/bin/ffmpeg'),
+        'ffprobe_path' => env('FFPROBE_PATH', '/opt/homebrew/bin/ffprobe'),
     ],
 
     'cleanup_on_delete' => env('VIDEO_CLEANUP_ON_DELETE', true),

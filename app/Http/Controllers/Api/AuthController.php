@@ -3,15 +3,22 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\CheckPhoneNumberRequest;
 use App\Models\User;
 use App\Models\Referral;
+use App\Models\PhoneVerification;
 use App\Services\VideoService;
+use App\Services\SmsService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\ValidationException;
+use Carbon\Carbon;
 
+/**
+ * @tags Authentication
+ */
 class AuthController extends Controller
 {
     public function register(Request $request)
@@ -273,5 +280,204 @@ class AuthController extends Controller
                 'message' => 'Ошибка при удалении аккаунта: ' . $e->getMessage()
             ], 500);
         }
+    }
+
+    /**
+     * Отправка кода верификации
+     */
+    public function sendVerificationCode(Request $request)
+    {
+        $request->validate([
+            'phone_number' => 'required|string|max:20',
+            'name' => 'required|string|max:255',
+            'email' => 'required|string|email|max:255',
+            'password' => 'required|string|min:8|confirmed',
+            'referral_code' => 'nullable|string|min:6|max:10',
+        ]);
+
+        // Проверяем, не зарегистрирован ли уже номер
+        if (User::where('phone_number', $request->phone_number)->exists()) {
+            return response()->json([
+                'success' => false,
+                'error' => 'Номер телефона уже зарегистрирован'
+            ], 422);
+        }
+
+        // Проверяем, не зарегистрирован ли уже email
+        if (User::where('email', $request->email)->exists()) {
+            return response()->json([
+                'success' => false,
+                'error' => 'Email уже зарегистрирован'
+            ], 422);
+        }
+
+        // Генерируем код
+        $code = str_pad(random_int(100000, 999999), 6, '0', STR_PAD_LEFT);
+        $expiresAt = Carbon::now()->addMinutes(5);
+
+        // Сохраняем данные верификации
+        PhoneVerification::updateOrCreate(
+            ['phone_number' => $request->phone_number],
+            [
+                'code' => $code,
+                'expires_at' => $expiresAt,
+                'registration_data' => [
+                    'name' => $request->name,
+                    'email' => $request->email,
+                    'password' => $request->password,
+                    'referral_code' => $request->referral_code,
+                ],
+                'is_verified' => false,
+            ]
+        );
+
+        // Отправляем SMS
+        try {
+            $smsService = app(SmsService::class);
+            $smsService->sendVerificationCode($request->phone_number, $code);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'error' => 'Ошибка отправки SMS: ' . $e->getMessage()
+            ], 500);
+        }
+
+        return response()->json([
+            'success' => true,
+            'message' => "Код подтверждения отправлен на номер {$request->phone_number}",
+            'expires_at' => $expiresAt->format('Y-m-d H:i:s'),
+            'expires_in_seconds' => 300
+        ]);
+    }
+
+    /**
+     * Подтверждение кода и завершение регистрации
+     */
+    public function verifyAndRegister(Request $request)
+    {
+        $request->validate([
+            'phone_number' => 'required|string',
+            'code' => 'required|string|size:6',
+        ]);
+
+        $verification = PhoneVerification::where('phone_number', $request->phone_number)
+            ->where('code', $request->code)
+            ->where('expires_at', '>', Carbon::now())
+            ->where('is_verified', false)
+            ->first();
+
+        if (!$verification) {
+            return response()->json([
+                'success' => false,
+                'error' => 'Неверный код подтверждения'
+            ], 422);
+        }
+
+        // Получаем данные регистрации
+        $registrationData = $verification->registration_data;
+
+        // Создаем пользователя
+        $user = User::create([
+            'name' => $registrationData['name'],
+            'email' => $registrationData['email'],
+            'phone_number' => $request->phone_number,
+            'password' => Hash::make($registrationData['password']),
+        ]);
+
+        // Обрабатываем реферальный код
+        if (!empty($registrationData['referral_code'])) {
+            $referral = Referral::where('referral_code', strtoupper($registrationData['referral_code']))
+                ->whereNull('referred_id')
+                ->first();
+
+            if ($referral && $referral->referrer_id !== $user->id) {
+                $referral->update([
+                    'referred_id' => $user->id,
+                    'reward_amount' => config('referral.reward_amount', 10.00)
+                ]);
+            }
+        }
+
+        // Отмечаем верификацию как завершенную
+        $verification->update(['is_verified' => true]);
+
+        $token = $user->createToken('auth_token')->plainTextToken;
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Регистрация успешно завершена',
+            'user' => $user,
+            'token' => $token
+        ]);
+    }
+
+    /**
+     * Получение статуса верификации
+     */
+    public function getVerificationStatus(Request $request)
+    {
+        $request->validate([
+            'phone_number' => 'required|string',
+        ]);
+
+        $verification = PhoneVerification::where('phone_number', $request->phone_number)
+            ->latest()
+            ->first();
+
+        if (!$verification) {
+            return response()->json([
+                'status' => 'not_requested',
+                'message' => 'Код не запрашивался'
+            ]);
+        }
+
+        if ($verification->is_verified) {
+            return response()->json([
+                'status' => 'verified',
+                'message' => 'Номер подтвержден',
+                'verified_at' => $verification->updated_at->format('Y-m-d H:i:s')
+            ]);
+        }
+
+        if ($verification->expires_at < Carbon::now()) {
+            return response()->json([
+                'status' => 'expired',
+                'message' => 'Код истек'
+            ]);
+        }
+
+        $remainingSeconds = $verification->expires_at->diffInSeconds(Carbon::now());
+
+        return response()->json([
+            'status' => 'pending',
+            'message' => 'Ожидается подтверждение',
+            'expires_at' => $verification->expires_at->format('Y-m-d H:i:s'),
+            'remaining_seconds' => $remainingSeconds
+        ]);
+    }
+
+    /**
+     * Проверить, зарегистрирован ли номер телефона
+     */
+    public function checkPhoneNumber(CheckPhoneNumberRequest $request)
+    {
+        $phoneNumber = $request->validated()['phone_number'];
+        
+        $normalizedPhone = preg_replace('/[\s\-\(\)]/', '', $phoneNumber);
+        
+        $userExists = User::where('phone_number', $phoneNumber)
+            ->orWhere('phone_number', $normalizedPhone)
+            ->exists();
+
+        return response()->json([
+            'success' => true,
+            'data' => [
+                'phone_number' => $phoneNumber,
+                'is_registered' => $userExists,
+                'message' => $userExists 
+                    ? 'Номер телефона уже зарегистрирован' 
+                    : 'Номер телефона доступен для регистрации'
+            ]
+        ]);
     }
 }
