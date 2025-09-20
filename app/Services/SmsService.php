@@ -8,6 +8,27 @@ use Illuminate\Support\Facades\Log;
 
 class SmsService
 {
+    /**
+     * Проверяет, является ли номер Билайн Казахстан
+     */
+    public function isBeelineKzNumber(string $phone): bool
+    {
+        $phone = preg_replace('/\D/', '', $phone);
+        // Привести к формату 7XXXXXXXXXX
+        if (strlen($phone) === 11 && ($phone[0] === '8' || $phone[0] === '7')) {
+            $phone = '7' . substr($phone, 1);
+        }
+        // Проверка по шаблонам
+        $prefixes = [
+            '7705', '7771', '7776', '7777'
+        ];
+        foreach ($prefixes as $prefix) {
+            if (strpos($phone, $prefix) === 0) {
+                return true;
+            }
+        }
+        return false;
+    }
     private $client;
     private $login;
     private $password;
@@ -27,17 +48,21 @@ class SmsService
     public function sendSms(string $phone, string $message, string $type = 'general', ?int $userId = null): array
     {
         $formattedPhone = $this->formatPhone($phone);
-        
+        $formParams = [
+            'login' => $this->login,
+            'psw' => $this->password,
+            'phones' => $formattedPhone,
+            'mes' => $message,
+            'fmt' => 3, // JSON response
+            'charset' => 'utf-8'
+        ];
+        // Если номер Билайн, добавить tg=1
+        if ($this->isBeelineKzNumber($phone)) {
+            $formParams['tg'] = 1;
+        }
         try {
             $response = $this->client->post($this->baseUrl, [
-                'form_params' => [
-                    'login' => $this->login,
-                    'psw' => $this->password,
-                    'phones' => $formattedPhone,
-                    'mes' => $message,
-                    'fmt' => 3, // JSON response
-                    'charset' => 'utf-8'
-                ],
+                'form_params' => $formParams,
                 'timeout' => 30
             ]);
 
