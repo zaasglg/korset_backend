@@ -27,6 +27,9 @@ Route::post('/send-verification-code', [AuthController::class, 'sendVerification
 Route::post('/verify-and-register', [AuthController::class, 'verifyAndRegister']);
 Route::post('/verification-status', [AuthController::class, 'getVerificationStatus']);
 
+// Password reset
+Route::post('/reset-password', [\App\Http\Controllers\Api\PasswordResetController::class, 'reset']);
+
 // Phone number check
 Route::post('/check-phone-number', [AuthController::class, 'checkPhoneNumber']);
 
