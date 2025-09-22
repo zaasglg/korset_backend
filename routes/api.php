@@ -31,7 +31,7 @@ Route::post('/verification-status', [AuthController::class, 'getVerificationStat
 Route::post('/check-phone-number', [AuthController::class, 'checkPhoneNumber']);
 
 // Legacy registration (keep for backward compatibility)
-Route::post('/register', [AuthController::class, 'register']);
+Route::post('/register', [AuthController::class, 'sendVerificationCode']);
 Route::post('/login', [AuthController::class, 'login']);
 
 // Referral validation (public route for registration)
