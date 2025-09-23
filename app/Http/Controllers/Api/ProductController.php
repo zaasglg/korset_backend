@@ -237,6 +237,7 @@ class ProductController extends Controller
         $this->authorize('update', $product);
 
         $validated = $request->validated();
+        $oldVideo = $product->video;
 
         // Handle video upload if provided
         if ($request->hasFile('video')) {
@@ -255,6 +256,13 @@ class ProductController extends Controller
                     'compression_ratio' => $result['compression_ratio'] ?? null,
                     'video_duration' => $result['duration'] ?? null,
                 ]);
+                
+                \Log::info('Video updated', [
+                    'product_id' => $product->id,
+                    'old_video' => $oldVideo,
+                    'new_video' => $result['path'],
+                    'validated_data' => $validated
+                ]);
             } catch (\Exception $e) {
                 return response()->json([
                     'status' => 'error',
@@ -268,12 +276,18 @@ class ProductController extends Controller
         }
 
         $product->update($validated);
+        $product->refresh(); // Перезагружаем данные из БД
         $product->load(['category', 'city', 'parameterValues.parameter']);
 
         return response()->json([
             'status' => 'success',
             'message' => 'Product updated successfully',
-            'data' => $product
+            'data' => $product,
+            'debug' => [
+                'old_video' => $oldVideo,
+                'new_video' => $product->video,
+                'video_updated' => $request->hasFile('video')
+            ]
         ]);
     }
 
