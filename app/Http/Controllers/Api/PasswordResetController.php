@@ -24,9 +24,17 @@ class PasswordResetController extends Controller
             ], 404);
         }
 
-        // Генерируем новый пароль
-        $newPassword = str_pad(random_int(100000, 999999), 6, '0', STR_PAD_LEFT);
-        $user->password = Hash::make($newPassword);
+
+        // Генерируем сложный пароль (цифры + буквы)
+        $alphabet = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+        $newPassword = '';
+        $length = 8;
+        for ($i = 0; $i < $length; $i++) {
+            $newPassword .= $alphabet[random_int(0, strlen($alphabet) - 1)];
+        }
+
+        // Меняем пароль через fill+save (на случай кастомных событий/атрибутов)
+        $user->fill(['password' => Hash::make($newPassword)]);
         $user->save();
 
         // Отправляем новый пароль через SMS/Telegram
