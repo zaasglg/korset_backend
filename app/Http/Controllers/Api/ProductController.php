@@ -238,6 +238,13 @@ class ProductController extends Controller
 
         $validated = $request->validated();
         $oldVideo = $product->video;
+        
+        \Log::info('Product update request', [
+            'product_id' => $product->id,
+            'has_video_file' => $request->hasFile('video'),
+            'all_files' => $request->allFiles(),
+            'validated_data' => $validated
+        ]);
 
         // Handle video upload if provided
         if ($request->hasFile('video')) {
@@ -260,10 +267,13 @@ class ProductController extends Controller
                 \Log::info('Video updated', [
                     'product_id' => $product->id,
                     'old_video' => $oldVideo,
-                    'new_video' => $result['path'],
-                    'validated_data' => $validated
+                    'new_video' => $result['path']
                 ]);
             } catch (\Exception $e) {
+                \Log::error('Video upload error', [
+                    'product_id' => $product->id,
+                    'error' => $e->getMessage()
+                ]);
                 return response()->json([
                     'status' => 'error',
                     'message' => $e->getMessage()
@@ -276,7 +286,7 @@ class ProductController extends Controller
         }
 
         $product->update($validated);
-        $product->refresh(); // Перезагружаем данные из БД
+        $product->refresh();
         $product->load(['category', 'city', 'parameterValues.parameter']);
 
         return response()->json([
@@ -286,7 +296,8 @@ class ProductController extends Controller
             'debug' => [
                 'old_video' => $oldVideo,
                 'new_video' => $product->video,
-                'video_updated' => $request->hasFile('video')
+                'video_updated' => $request->hasFile('video'),
+                'has_files' => !empty($request->allFiles())
             ]
         ]);
     }
