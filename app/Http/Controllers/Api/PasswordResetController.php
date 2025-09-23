@@ -25,44 +25,13 @@ class PasswordResetController extends Controller
             ], 404);
         }
 
-        // Генерируем сложный пароль (цифры + буквы)
-        $alphabet = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
-        $newPassword = '';
-        $length = 8;
-        
-        for ($i = 0; $i < $length; $i++) {
-            $newPassword .= $alphabet[random_int(0, strlen($alphabet) - 1)];
-        }
+        // Генерируем простой пароль из цифр
+        $newPassword = str_pad(random_int(100000, 999999), 6, '0', STR_PAD_LEFT);
 
-        // Сохраняем старый хеш для отладки
-        $oldHash = $user->password;
-
-        // Хешируем пароль вручную (без каста)
-        $user->password = Hash::make($newPassword);
-        $user->save();
-
-        // Проверяем, что пароль действительно изменился
-        $user->refresh(); // Перезагружаем из БД
-        $newHash = $user->password;
-
-        // Логируем для отладки
-        Log::info('Password Reset Debug', [
-            'user_id' => $user->id,
-            'phone_number' => $user->phone_number,
-            'new_password' => $newPassword,
-            'old_hash' => $oldHash,
-            'new_hash' => $newHash,
-            'hash_check' => Hash::check($newPassword, $newHash)
+        // Обновляем пароль
+        $user->update([
+            'password' => Hash::make($newPassword)
         ]);
-
-        // Проверяем, что новый пароль работает
-        if (!Hash::check($newPassword, $newHash)) {
-            Log::error('Password hash verification failed after reset');
-            return response()->json([
-                'success' => false,
-                'error' => 'Ошибка при создании нового пароля. Попробуйте еще раз.'
-            ], 500);
-        }
 
         // Отправляем новый пароль через SMS/Telegram
         $smsService = app(SmsService::class);
@@ -71,46 +40,9 @@ class PasswordResetController extends Controller
         return response()->json([
             'success' => true,
             'message' => 'Новый пароль отправлен на ваш номер.',
-            // Временно для отладки - уберите в продакшене!
-            'debug' => [
-                'password' => $newPassword,
-                'user_id' => $user->id
-            ]
+            'password' => $newPassword // Временно для отладки
         ]);
     }
 
-    // Добавим метод для тестирования аутентификации
-    public function testLogin(Request $request)
-    {
-        $request->validate([
-            'phone_number' => 'required|string',
-            'password' => 'required|string',
-        ]);
 
-        $user = User::where('phone_number', $request->phone_number)->first();
-
-        if (!$user) {
-            return response()->json(['error' => 'User not found'], 404);
-        }
-
-        $passwordCheck = Hash::check($request->password, $user->password);
-
-        Log::info('Login Test', [
-            'user_id' => $user->id,
-            'phone_number' => $user->phone_number,
-            'input_password' => $request->password,
-            'stored_hash' => $user->password,
-            'hash_check_result' => $passwordCheck
-        ]);
-
-        return response()->json([
-            'user_found' => true,
-            'password_correct' => $passwordCheck,
-            'user_active' => $user->is_active ?? true,
-            'debug' => [
-                'input_password' => $request->password,
-                'stored_hash' => $user->password
-            ]
-        ]);
-    }
 }
