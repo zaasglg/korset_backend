@@ -123,6 +123,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/products/{product}/share', [ProductController::class, 'shareProduct']);
     Route::get('/products/{product}/share-stats', [ProductController::class, 'getShareStats']);
     Route::put('/products/{product}', [ProductController::class, 'update']);
+    Route::patch('/products/{product}', [ProductController::class, 'update']);
     Route::delete('/products/{product}', [ProductController::class, 'destroy']);
     Route::post('/products/{product}/parameters', [ProductController::class, 'updateParameters']);
 
