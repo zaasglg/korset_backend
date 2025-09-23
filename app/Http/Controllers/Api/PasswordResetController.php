@@ -37,8 +37,8 @@ class PasswordResetController extends Controller
         // Сохраняем старый хеш для отладки
         $oldHash = $user->password;
 
-        // С кастом 'hashed' Laravel сам хеширует пароль
-        $user->password = $newPassword;
+        // Хешируем пароль вручную (без каста)
+        $user->password = Hash::make($newPassword);
         $user->save();
 
         // Проверяем, что пароль действительно изменился
