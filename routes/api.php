@@ -77,6 +77,17 @@ Route::get('/products/{product}/booking-status', [ProductBookingController::clas
 // Payment callback (public route)
 Route::post('/payments/freedompay/callback', [PaymentController::class, 'freedomPayCallback']);
 
+Route::post('/test-video-upload', function (Request $request) {
+    return response()->json([
+        'has_video' => $request->hasFile('video'),
+        'all_files' => $request->allFiles(),
+        'video_info' => $request->hasFile('video') ? [
+            'name' => $request->file('video')->getClientOriginalName(),
+            'size' => $request->file('video')->getSize(),
+        ] : null,
+    ]);
+});
+
 // Product and Category Management Routes
 Route::get('/categories', [CategoryController::class, 'index']);
 Route::get('/categories/{category}', [CategoryController::class, 'show']);
