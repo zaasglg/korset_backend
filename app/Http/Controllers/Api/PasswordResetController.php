@@ -16,7 +16,13 @@ class PasswordResetController extends Controller
             'phone_number' => 'required|string',
         ]);
 
-        $user = User::where('phone_number', $request->phone_number)->first();
+        $phoneNumber = $request->phone_number;
+        $normalizedPhone = preg_replace('/[\s\-\(\)]/', '', $phoneNumber);
+        
+        $user = User::where('phone_number', $phoneNumber)
+            ->orWhere('phone_number', $normalizedPhone)
+            ->orWhere('phone_number', '+' . $normalizedPhone)
+            ->first();
 
         if (!$user) {
             return response()->json([
@@ -33,9 +39,13 @@ class PasswordResetController extends Controller
             'password' => Hash::make($newPassword)
         ]);
 
-        // Отправляем новый пароль через SMS/Telegram
-        $smsService = app(SmsService::class);
-        $smsService->sendSms($user->phone_number, "Ваш новый пароль: $newPassword", 'password_reset', $user->id);
+        // Отправляем новый пароль через SMS
+        try {
+            $smsService = app(SmsService::class);
+            $smsService->sendSms($user->phone_number, "Ваш новый пароль: $newPassword", 'password_reset', $user->id);
+        } catch (\Exception $e) {
+            // Продолжаем даже если SMS не отправилось
+        }
 
         return response()->json([
             'success' => true,
