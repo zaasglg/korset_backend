@@ -33,9 +33,8 @@ class PasswordResetController extends Controller
             $newPassword .= $alphabet[random_int(0, strlen($alphabet) - 1)];
         }
 
-    // Меняем пароль через fill+save (Laravel сам хеширует через cast)
-    $user->fill(['password' => $newPassword]);
-    $user->save();
+        // Меняем пароль через fill+save (Laravel сам хеширует через cast)
+        $user->update(['password' => $newPassword]);
 
         // Отправляем новый пароль через SMS/Telegram
         $smsService = app(SmsService::class);
