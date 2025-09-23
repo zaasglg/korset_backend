@@ -239,12 +239,7 @@ class ProductController extends Controller
         $validated = $request->validated();
         $oldVideo = $product->video;
         
-        \Log::info('Product update request', [
-            'product_id' => $product->id,
-            'has_video_file' => $request->hasFile('video'),
-            'all_files' => $request->allFiles(),
-            'validated_data' => $validated
-        ]);
+
 
         // Handle video upload if provided
         if ($request->hasFile('video')) {
@@ -264,16 +259,9 @@ class ProductController extends Controller
                     'video_duration' => $result['duration'] ?? null,
                 ]);
                 
-                \Log::info('Video updated', [
-                    'product_id' => $product->id,
-                    'old_video' => $oldVideo,
-                    'new_video' => $result['path']
-                ]);
+
             } catch (\Exception $e) {
-                \Log::error('Video upload error', [
-                    'product_id' => $product->id,
-                    'error' => $e->getMessage()
-                ]);
+
                 return response()->json([
                     'status' => 'error',
                     'message' => $e->getMessage()
@@ -296,8 +284,9 @@ class ProductController extends Controller
             'debug' => [
                 'old_video' => $oldVideo,
                 'new_video' => $product->video,
-                'video_updated' => $request->hasFile('video'),
-                'has_files' => !empty($request->allFiles())
+                'video_file_sent' => $request->hasFile('video'),
+                'video_changed' => $oldVideo !== $product->video,
+                'request_files' => array_keys($request->allFiles())
             ]
         ]);
     }
