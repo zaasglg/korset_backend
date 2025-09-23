@@ -247,7 +247,14 @@ class ProductController extends Controller
                 }
 
                 $result = $this->videoService->uploadVideo($request->file('video'));
-                $validated['video'] = $result['path'];
+                $validated = array_merge($validated, [
+                    'video' => $result['path'],
+                    'video_thumbnail' => isset($result['thumbnail']) ? str_replace(asset('storage/'), '', $result['thumbnail']) : null,
+                    'original_video_size' => $result['original_size'] ?? null,
+                    'optimized_video_size' => $result['optimized_size'] ?? null,
+                    'compression_ratio' => $result['compression_ratio'] ?? null,
+                    'video_duration' => $result['duration'] ?? null,
+                ]);
             } catch (\Exception $e) {
                 return response()->json([
                     'status' => 'error',
