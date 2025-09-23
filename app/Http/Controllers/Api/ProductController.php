@@ -232,65 +232,105 @@ class ProductController extends Controller
     /**
      * Update the specified product.
      */
-    public function update(UpdateProductRequest $request, Product $product): JsonResponse
-    {
-        $this->authorize('update', $product);
+public function update(UpdateProductRequest $request, Product $product): JsonResponse
+{
+    // Отладка в самом начале
+    \Log::info('=== UPDATE START ===', [
+        'product_id' => $product->id,
+        'method' => $request->method(),
+        'has_video_raw' => $request->hasFile('video'),
+        'all_files' => $request->allFiles(),
+        'php_files' => $_FILES,
+    ]);
 
-        $validated = $request->validated();
-        $oldVideo = $product->video;
-        
+    $this->authorize('update', $product);
+    
+    // Отладка после авторизации
+    \Log::info('=== AFTER AUTHORIZE ===', [
+        'has_video' => $request->hasFile('video'),
+    ]);
+    
+    $validated = $request->validated();
+    
+    // Отладка после валидации
+    \Log::info('=== AFTER VALIDATION ===', [
+        'has_video' => $request->hasFile('video'),
+        'video_in_validated' => array_key_exists('video', $validated),
+        'validated_keys' => array_keys($validated),
+    ]);
+    
+    $oldVideo = $product->video;
+    
+    \Log::info('Product update request', [
+        'product_id' => $product->id,
+        'has_video_file' => $request->hasFile('video'),
+        'all_files' => $request->allFiles(),
+        'validated_data' => $validated
+    ]);
 
-
-        // Handle video upload if provided
-        if ($request->hasFile('video')) {
-            try {
-                // Delete old video if exists
-                if ($product->video) {
-                    $this->videoService->deleteVideo($product->video);
-                }
-
-                $result = $this->videoService->uploadVideo($request->file('video'));
-                $validated = array_merge($validated, [
-                    'video' => $result['path'],
-                    'video_thumbnail' => isset($result['thumbnail']) ? str_replace(asset('storage/'), '', $result['thumbnail']) : null,
-                    'original_video_size' => $result['original_size'] ?? null,
-                    'optimized_video_size' => $result['optimized_size'] ?? null,
-                    'compression_ratio' => $result['compression_ratio'] ?? null,
-                    'video_duration' => $result['duration'] ?? null,
-                ]);
-                
-
-            } catch (\Exception $e) {
-
-                return response()->json([
-                    'status' => 'error',
-                    'message' => $e->getMessage()
-                ], 500);
+    // Handle video upload if provided
+    if ($request->hasFile('video')) {
+        \Log::info('=== ENTERING VIDEO BLOCK ===');
+        try {
+            // Delete old video if exists
+            if ($product->video) {
+                $this->videoService->deleteVideo($product->video);
             }
-        }
-
-        if (isset($validated['name'])) {
-            $validated['slug'] = Str::slug($validated['name']);
-        }
-
-        $product->update($validated);
-        $product->refresh();
-        $product->load(['category', 'city', 'parameterValues.parameter']);
-
-        return response()->json([
-            'status' => 'success',
-            'message' => 'Product updated successfully',
-            'data' => $product,
-            'debug' => [
+            
+            $result = $this->videoService->uploadVideo($request->file('video'));
+            
+            $validated = array_merge($validated, [
+                'video' => $result['path'],
+                'video_thumbnail' => isset($result['thumbnail']) ? str_replace(asset('storage/'), '', $result['thumbnail']) : null,
+                'original_video_size' => $result['original_size'] ?? null,
+                'optimized_video_size' => $result['optimized_size'] ?? null,
+                'compression_ratio' => $result['compression_ratio'] ?? null,
+                'video_duration' => $result['duration'] ?? null,
+            ]);
+            
+            \Log::info('Video updated', [
+                'product_id' => $product->id,
                 'old_video' => $oldVideo,
-                'new_video' => $product->video,
-                'video_file_sent' => $request->hasFile('video'),
-                'video_changed' => $oldVideo !== $product->video,
-                'request_files' => array_keys($request->allFiles())
-            ]
+                'new_video' => $result['path']
+            ]);
+        } catch (\Exception $e) {
+            \Log::error('Video upload error', [
+                'product_id' => $product->id,
+                'error' => $e->getMessage()
+            ]);
+            return response()->json([
+                'status' => 'error',
+                'message' => $e->getMessage()
+            ], 500);
+        }
+    } else {
+        \Log::info('=== VIDEO BLOCK SKIPPED ===', [
+            'has_video' => $request->hasFile('video'),
+            'all_files' => $request->allFiles(),
+            'php_files' => $_FILES,
         ]);
     }
-
+    
+    if (isset($validated['name'])) {
+        $validated['slug'] = Str::slug($validated['name']);
+    }
+    
+    $product->update($validated);
+    $product->refresh();
+    $product->load(['category', 'city', 'parameterValues.parameter']);
+    
+    return response()->json([
+        'status' => 'success',
+        'message' => 'Product updated successfully',
+        'data' => $product,
+        'debug' => [
+            'old_video' => $oldVideo,
+            'new_video' => $product->video,
+            'video_updated' => $request->hasFile('video'),
+            'has_files' => !empty($request->allFiles())
+        ]
+    ]);
+}
     /**
      * Remove the specified product.
      */
