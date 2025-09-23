@@ -68,7 +68,16 @@ class AuthController extends Controller
             'password' => 'required',
         ]);
 
-        $user = User::where('phone_number', $request->phone_number)->first();
+        $phoneNumber = $request->phone_number;
+        
+        // Нормализуем номер телефона для поиска
+        $normalizedPhone = preg_replace('/[\s\-\(\)]/', '', $phoneNumber);
+        
+        // Ищем пользователя по разным вариантам номера
+        $user = User::where('phone_number', $phoneNumber)
+            ->orWhere('phone_number', $normalizedPhone)
+            ->orWhere('phone_number', '+' . $normalizedPhone)
+            ->first();
 
         if (!$user || !Hash::check($request->password, $user->password)) {
             throw ValidationException::withMessages([
@@ -154,7 +163,7 @@ class AuthController extends Controller
 
         // Update password
         $user->update([
-            'password' => Hash::make($request->password)
+            'password' => Hash::make(value: $request->password)
         ]);
 
         return response()->json([
