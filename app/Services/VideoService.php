@@ -222,7 +222,7 @@ class VideoService
 
         // FFmpeg command for optimization
         $command = sprintf(
-            'ffmpeg -i %s -c:v libx264 -preset medium -crf 28 -c:a aac -b:a 128k -movflags +faststart -vf "scale=trunc(iw/2)*2:trunc(ih/2)*2" %s 2>/dev/null',
+            'ffmpeg -i %s -c:v libx264 -preset medium -crf 32 -c:a aac -b:a 128k -movflags +faststart -vf "scale=trunc(iw/2)*2:trunc(ih/2)*2" %s 2>/dev/null',
             escapeshellarg($inputFullPath),
             escapeshellarg($outputFullPath)
         );
