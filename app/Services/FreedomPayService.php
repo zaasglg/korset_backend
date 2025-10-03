@@ -109,6 +109,34 @@ class FreedomPayService
                 'response' => $responseData,
             ]);
 
+            // Пополняем баланс сразу после успешной инициализации
+            try {
+                $this->walletService->deposit(
+                    $paymentSession->user,
+                    $paymentSession->amount,
+                    'Пополнение через FreedomPay',
+                    $paymentSession->order_id
+                );
+
+                // Отмечаем сессию как оплаченную
+                $paymentSession->markAsPaid();
+
+                Log::info('Balance topped up immediately after payment initialization', [
+                    'order_id' => $paymentSession->order_id,
+                    'amount' => $paymentSession->amount,
+                    'user_id' => $paymentSession->user_id,
+                ]);
+            } catch (\Exception $e) {
+                Log::error('Failed to top up balance after payment initialization', [
+                    'order_id' => $paymentSession->order_id,
+                    'amount' => $paymentSession->amount,
+                    'user_id' => $paymentSession->user_id,
+                    'error' => $e->getMessage(),
+                ]);
+                
+                // Не прерываем выполнение, так как платеж уже инициализирован
+            }
+
             return $responseData;
 
         } catch (\Exception $e) {
@@ -186,27 +214,29 @@ class FreedomPayService
         $status = $data['pg_result'] ?? null;
 
         if ($status === '1' || $status === 1 || $status === 'ok') {
-            // Платеж успешен
-            $paymentSession->markAsPaid();
+            // Платеж успешен - баланс уже пополнен при инициализации
+            if ($paymentSession->status !== 'paid') {
+                $paymentSession->markAsPaid();
+            }
 
             // Проверяем, не был ли уже пополнен баланс для этого платежа
             if (!$paymentSession->hasBalanceToppedUp()) {
-                // Пополняем баланс пользователя через WalletService
+                // Пополняем баланс пользователя через WalletService (резервный случай)
                 try {
                     $this->walletService->deposit(
                         $paymentSession->user,
                         $paymentSession->amount,
-                        'Пополнение через FreedomPay',
+                        'Пополнение через FreedomPay (callback)',
                         $paymentSession->order_id
                     );
 
-                    Log::info('Payment completed and balance topped up successfully', [
+                    Log::info('Payment completed and balance topped up via callback', [
                         'order_id' => $orderId,
                         'amount' => $paymentSession->amount,
                         'user_id' => $paymentSession->user_id,
                     ]);
                 } catch (\Exception $e) {
-                    Log::error('Failed to top up balance after successful payment', [
+                    Log::error('Failed to top up balance after successful payment callback', [
                         'order_id' => $orderId,
                         'amount' => $paymentSession->amount,
                         'user_id' => $paymentSession->user_id,
@@ -217,7 +247,7 @@ class FreedomPayService
                 }
             } else {
                 $existingTransaction = $paymentSession->getBalanceTopUpTransaction();
-                Log::info('Payment completed but balance already topped up', [
+                Log::info('Payment completed and balance already topped up', [
                     'order_id' => $orderId,
                     'amount' => $paymentSession->amount,
                     'user_id' => $paymentSession->user_id,
