@@ -25,3 +25,4 @@ yarn-error.log
 # YoYo AI version control directory
 .yoyo/
 database/database.sqlite
+database/database.sqlite
