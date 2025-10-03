@@ -376,21 +376,21 @@
                 
                 <div class="flex flex-col sm:flex-row gap-4 justify-center items-center">
                     <!-- Google Play Store -->
-                    <a href="https://play.google.com/store/apps/details?id=com.korset.app" 
+                    <a href="https://play.google.com/store/apps/details?id=com.korset.app&hl=ru" 
                        target="_blank" 
                        rel="noopener noreferrer"
-                       class="inline-flex items-center bg-black text-white px-6 py-3 rounded-lg hover:bg-gray-800 transition-colors duration-200 shadow-lg hover:shadow-xl">
+                       class="inline-flex items-center bg-black text-white px-6 py-3 rounded-lg hover:bg-gray-800 transition-colors duration-200 shadow-lg hover:shadow-xl w-full sm:w-auto min-w-[200px]">
                         <svg class="w-6 h-6 mr-3" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" version="1.1" id="_x36_" viewBox="0 0 512 512" xml:space="preserve">
-<g>
-	<g>
-		<path style="fill:#3A9BC8;" d="M225.656,256.052L14.016,485.451l-6.442,7.052c-4.005-5.919-6.704-12.972-7.313-20.806    C0.087,470.305,0,468.91,0,467.518V44.499c0-9.488,2.873-18.02,7.574-24.987L225.656,256.052z"/>
-		<path style="fill:#9BCD83;" d="M320.811,152.8l-95.155,103.253L7.574,19.512C19.936,1.405,45.183-6.342,66.6,6.02L320.811,152.8z"/>
-		<path style="fill:#EEB84C;" d="M455.056,257.27c-0.348,14.453-7.748,28.904-22.113,37.174l-112.132,64.771l-95.155-103.163    L320.811,152.8l70.518,40.745l41.614,24.026C448.178,226.366,455.579,241.861,455.056,257.27z"/>
-		<path style="fill:#B43F70;" d="M7.591,492.492c12.368,18.116,37.599,25.838,58.976,13.496L320.775,359.22l-95.156-103.209    L7.591,492.492z"/>
-	</g>
-	<path style="opacity:0.2;fill:#FFFFFF;" d="M454.067,246.447c-2.453-11.518-9.483-22.156-21.124-28.876l-41.614-24.026   L320.811,152.8L66.6,6.02C45.183-6.342,19.936,1.405,7.574,19.512C2.873,26.479,0,35.011,0,44.499v243.72   c36.681,3.114,74.226,4.746,112.451,4.746c47.984,0,94.85-2.644,140.318-7.505l-27.027-29.314l27.038,29.314   C323.988,277.849,391.567,264.55,454.067,246.447z"/>
-</g>
-</svg>
+                            <g>
+                                <g>
+                                    <path style="fill:#3A9BC8;" d="M225.656,256.052L14.016,485.451l-6.442,7.052c-4.005-5.919-6.704-12.972-7.313-20.806    C0.087,470.305,0,468.91,0,467.518V44.499c0-9.488,2.873-18.02,7.574-24.987L225.656,256.052z"/>
+                                    <path style="fill:#9BCD83;" d="M320.811,152.8l-95.155,103.253L7.574,19.512C19.936,1.405,45.183-6.342,66.6,6.02L320.811,152.8z"/>
+                                    <path style="fill:#EEB84C;" d="M455.056,257.27c-0.348,14.453-7.748,28.904-22.113,37.174l-112.132,64.771l-95.155-103.163    L320.811,152.8l70.518,40.745l41.614,24.026C448.178,226.366,455.579,241.861,455.056,257.27z"/>
+                                    <path style="fill:#B43F70;" d="M7.591,492.492c12.368,18.116,37.599,25.838,58.976,13.496L320.775,359.22l-95.156-103.209    L7.591,492.492z"/>
+                                </g>
+                                <path style="opacity:0.2;fill:#FFFFFF;" d="M454.067,246.447c-2.453-11.518-9.483-22.156-21.124-28.876l-41.614-24.026   L320.811,152.8L66.6,6.02C45.183-6.342,19.936,1.405,7.574,19.512C2.873,26.479,0,35.011,0,44.499v243.72   c36.681,3.114,74.226,4.746,112.451,4.746c47.984,0,94.85-2.644,140.318-7.505l-27.027-29.314l27.038,29.314   C323.988,277.849,391.567,264.55,454.067,246.447z"/>
+                            </g>
+                        </svg>
                         <div class="text-left">
                             <div class="text-xs text-gray-300">Скачать в</div>
                             <div class="text-sm font-semibold">Google Play</div>
@@ -401,7 +401,7 @@
                     <a href="https://apps.apple.com/app/korset/id123456789" 
                        target="_blank" 
                        rel="noopener noreferrer"
-                       class="inline-flex items-center bg-black text-white px-6 py-3 rounded-lg hover:bg-gray-800 transition-colors duration-200 shadow-lg hover:shadow-xl">
+                       class="inline-flex items-center bg-black text-white px-6 py-3 rounded-lg hover:bg-gray-800 transition-colors duration-200 shadow-lg hover:shadow-xl w-full sm:w-auto min-w-[200px]">
                         <svg class="w-6 h-6 mr-3" viewBox="0 0 24 24" fill="currentColor">
                             <path d="M18.71,19.5C17.88,20.74 17,21.95 15.66,21.97C14.32,22 13.89,21.18 12.37,21.18C10.84,21.18 10.37,21.95 9.1,22C7.79,22.05 6.8,20.68 5.96,19.47C4.25,17 2.94,12.45 4.7,9.39C5.57,7.87 7.13,6.91 8.82,6.88C10.1,6.86 11.32,7.75 12.11,7.75C12.89,7.75 14.37,6.68 15.92,6.84C16.57,6.87 18.39,7.1 19.56,8.82C19.47,8.88 17.39,10.1 17.41,12.63C17.44,15.65 20.06,16.66 20.09,16.67C20.06,16.74 19.67,18.11 18.71,19.5M13,3.5C13.73,2.67 14.94,2.04 15.94,2C16.07,3.17 15.6,4.35 14.9,5.19C14.21,6.04 13.07,6.7 11.95,6.61C11.8,5.46 12.36,4.26 13,3.5Z"/>
                         </svg>
