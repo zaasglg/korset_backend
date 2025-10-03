@@ -57,4 +57,28 @@ class PaymentSession extends Model
             'paid_at' => now(),
         ]);
     }
+
+    /**
+     * Проверить, был ли уже пополнен баланс для этой платежной сессии
+     */
+    public function hasBalanceToppedUp(): bool
+    {
+        return $this->user->walletTransactions()
+            ->where('reference_id', $this->order_id)
+            ->where('type', 'deposit')
+            ->where('status', 'completed')
+            ->exists();
+    }
+
+    /**
+     * Получить транзакцию пополнения баланса для этой сессии
+     */
+    public function getBalanceTopUpTransaction()
+    {
+        return $this->user->walletTransactions()
+            ->where('reference_id', $this->order_id)
+            ->where('type', 'deposit')
+            ->where('status', 'completed')
+            ->first();
+    }
 }

@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\PaymentSession;
 use App\Models\User;
+use App\Services\WalletService;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 
@@ -12,12 +13,14 @@ class FreedomPayService
     private string $merchantId;
     private string $secretKey;
     private string $apiUrl;
+    private WalletService $walletService;
 
-    public function __construct()
+    public function __construct(WalletService $walletService)
     {
         $this->merchantId = config('services.freedompay.merchant_id');
         $this->secretKey = config('services.freedompay.secret_key');
         $this->apiUrl = config('services.freedompay.api_url', 'https://api.freedompay.kz');
+        $this->walletService = $walletService;
     }
 
     /**
@@ -25,7 +28,8 @@ class FreedomPayService
      */
     public function createPaymentSession(User $user, float $amount, string $description = 'Пополнение баланса'): PaymentSession
     {
-        $orderId = 'WALLET-' . $user->id . '-' . time();
+    // Добавляем уникальный суффикс для предотвращения дублирования order_id
+    $orderId = 'WALLET-' . $user->id . '-' . now()->timestamp . '-' . bin2hex(random_bytes(3));
 
         $paymentSession = PaymentSession::create([
             'user_id' => $user->id,
@@ -185,18 +189,41 @@ class FreedomPayService
             // Платеж успешен
             $paymentSession->markAsPaid();
 
-            // Пополняем баланс пользователя
-            $paymentSession->user->addFunds(
-                $paymentSession->amount,
-                'Пополнение через FreedomPay',
-                $paymentSession->order_id
-            );
+            // Проверяем, не был ли уже пополнен баланс для этого платежа
+            if (!$paymentSession->hasBalanceToppedUp()) {
+                // Пополняем баланс пользователя через WalletService
+                try {
+                    $this->walletService->deposit(
+                        $paymentSession->user,
+                        $paymentSession->amount,
+                        'Пополнение через FreedomPay',
+                        $paymentSession->order_id
+                    );
 
-            Log::info('Payment completed successfully', [
-                'order_id' => $orderId,
-                'amount' => $paymentSession->amount,
-                'user_id' => $paymentSession->user_id,
-            ]);
+                    Log::info('Payment completed and balance topped up successfully', [
+                        'order_id' => $orderId,
+                        'amount' => $paymentSession->amount,
+                        'user_id' => $paymentSession->user_id,
+                    ]);
+                } catch (\Exception $e) {
+                    Log::error('Failed to top up balance after successful payment', [
+                        'order_id' => $orderId,
+                        'amount' => $paymentSession->amount,
+                        'user_id' => $paymentSession->user_id,
+                        'error' => $e->getMessage(),
+                    ]);
+                    
+                    // Не прерываем выполнение, так как платеж уже успешен
+                }
+            } else {
+                $existingTransaction = $paymentSession->getBalanceTopUpTransaction();
+                Log::info('Payment completed but balance already topped up', [
+                    'order_id' => $orderId,
+                    'amount' => $paymentSession->amount,
+                    'user_id' => $paymentSession->user_id,
+                    'existing_transaction_id' => $existingTransaction->id,
+                ]);
+            }
 
         } else {
             // Платеж неуспешен

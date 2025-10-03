@@ -92,13 +92,40 @@ class PaymentController extends Controller
                 if (isset($statusData['pg_result']) && ($statusData['pg_result'] === '1' || $statusData['pg_result'] === 1)) {
                     $paymentSession->markAsPaid();
                     
-                    // Пополняем баланс
-                    $this->walletService->deposit(
-                        $user,
-                        $paymentSession->amount,
-                        'Пополнение через FreedomPay',
-                        $paymentSession->order_id
-                    );
+                    // Проверяем, не был ли уже пополнен баланс для этого платежа
+                    if (!$paymentSession->hasBalanceToppedUp()) {
+                        // Пополняем баланс
+                        try {
+                            $this->walletService->deposit(
+                                $user,
+                                $paymentSession->amount,
+                                'Пополнение через FreedomPay',
+                                $paymentSession->order_id
+                            );
+
+                            Log::info('Balance topped up via status check', [
+                                'session_id' => $sessionId,
+                                'order_id' => $paymentSession->order_id,
+                                'amount' => $paymentSession->amount,
+                                'user_id' => $user->id,
+                            ]);
+                        } catch (\Exception $e) {
+                            Log::error('Failed to top up balance via status check', [
+                                'session_id' => $sessionId,
+                                'order_id' => $paymentSession->order_id,
+                                'amount' => $paymentSession->amount,
+                                'user_id' => $user->id,
+                                'error' => $e->getMessage(),
+                            ]);
+                        }
+                    } else {
+                        $existingTransaction = $paymentSession->getBalanceTopUpTransaction();
+                        Log::info('Payment status check: balance already topped up', [
+                            'session_id' => $sessionId,
+                            'order_id' => $paymentSession->order_id,
+                            'existing_transaction_id' => $existingTransaction->id,
+                        ]);
+                    }
                 }
             }
 
@@ -175,14 +202,8 @@ class PaymentController extends Controller
 
             $result = $this->freedomPayService->handleCallback($data);
 
-            if ($result) {
-                // FreedomPay ожидает XML ответ
-                return response('<?xml version="1.0" encoding="utf-8"?><response><pg_status>ok</pg_status></response>')
-                    ->header('Content-Type', 'application/xml');
-            } else {
-                return response('<?xml version="1.0" encoding="utf-8"?><response><pg_status>error</pg_status></response>', 400)
-                    ->header('Content-Type', 'application/xml');
-            }
+            // FreedomPay ожидает только HTTP 200 OK, даже если ошибка
+            return response('OK', 200);
 
         } catch (\Exception $e) {
             Log::error('FreedomPay callback processing failed', [
@@ -190,9 +211,8 @@ class PaymentController extends Controller
                 'data' => $request->all(),
                 'raw_content' => $request->getContent(),
             ]);
-
-            return response('<?xml version="1.0" encoding="utf-8"?><response><pg_status>error</pg_status></response>', 500)
-                ->header('Content-Type', 'application/xml');
+            // Даже при ошибке возвращаем 200 OK
+            return response('OK', 200);
         }
     }
 }
